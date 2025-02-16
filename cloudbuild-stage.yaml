@@ -1,0 +1,58 @@
+steps:
+  # Step 1: Fetch the latest tag from the repository
+  - name: 'alpine/git'
+    id: 'Fetch Latest Tag'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        # Fetch all tags from the remote repository
+        git fetch --tags
+        # Get the latest tag (sorted by version)
+        export _TAG_NAME=$(git describe --tags --abbrev=0)
+        echo "Latest tag: $_TAG_NAME"
+
+  # Step 2: Build the Docker image using the fetched tag
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Application'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        docker build -t gcr.io/$PROJECT_ID/stage/my-app:${_TAG_NAME} --build-arg VERSION=${_TAG_NAME} .
+
+  # Step 3: Authenticate Docker to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Authenticate Docker'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "Authenticating Docker to Artifact Registry..."
+        gcloud auth configure-docker us-central1-docker.pkg.dev
+
+  # Step 4: Push the Docker image to Google Container Registry (GCR)
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Image'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        docker push gcr.io/$PROJECT_ID/stage/my-app:${_TAG_NAME}
+
+  # Step 5: Deploy the application to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Deploy Application'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy my-app-service-stage \
+          --image gcr.io/$PROJECT_ID/stage/my-app:${_TAG_NAME} \
+          --region us-central1 \
+          --platform managed \
+          --allow-unauthenticated
+
+# Store the Docker image in Google Container Registry
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/stage/my-app:${_TAG_NAME}'
