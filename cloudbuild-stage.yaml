@@ -1,5 +1,5 @@
 steps:
-  # Step 1: Fetch the latest tag from the repository
+  # Step 1: Fetch the latest tag for the stage branch
   - name: 'alpine/git'
     id: 'Fetch Latest Tag'
     entrypoint: 'sh'
@@ -8,9 +8,9 @@ steps:
       - |
         # Fetch all tags from the remote repository
         git fetch --tags
-        # Get the latest tag (sorted by version)
-        export _TAG_NAME=$(git describe --tags --abbrev=0)
-        echo "Latest tag: $_TAG_NAME"
+        # Get the latest tag for the stage branch (using TAG_PREFIX)
+        export _TAG_NAME=$(git tag --list "stage-*" --sort=-v:refname | head -n 1)
+        echo "Latest stage tag: $_TAG_NAME"
 
   # Step 2: Build the Docker image using the fetched tag
   - name: 'gcr.io/cloud-builders/docker'
