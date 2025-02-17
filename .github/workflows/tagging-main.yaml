@@ -18,12 +18,29 @@ jobs:
         ref: ${{ github.event.pull_request.merge_commit_sha }}
         fetch-depth: '0'
 
-    - name: Bump version and push tag
+    # Step 1: Bump version (without pushing the tag)
+    - name: Bump version
+      id: bump_version
       uses: anothrNick/github-tag-action@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         INITIAL_VERSION: 1.0.0
         WITH_V: true
         DEFAULT_BUMP: patch
+        PRERELEASE: false
         RELEASE_BRANCHES: main
-        TAG_PREFIX: main-  # Add a branch-specific prefix for main
+        DRY_RUN: true  # Prevents the action from pushing the tag
+
+    # Step 2: Add custom prefix to the new tag
+    - name: Add custom prefix to tag
+      id: add_prefix
+      run: |
+        NEW_TAG="stage-${{ steps.bump_version.outputs.new_tag }}"
+        echo "New tag with prefix: $NEW_TAG"
+        echo "new_tag_with_prefix=$NEW_TAG" >> $GITHUB_OUTPUT
+
+    # Step 3: Create and push the custom tag
+    - name: Push custom tag
+      run: |
+        git tag ${{ steps.add_prefix.outputs.new_tag_with_prefix }}
+        git push origin ${{ steps.add_prefix.outputs.new_tag_with_prefix }}
